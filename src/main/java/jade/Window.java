@@ -135,16 +135,6 @@ public class Window {
             glfwPollEvents();
             glClearColor(r,g,b,a);
 
-            //Not needed for actual game
-//            if(fadeToBlack){
-//                r = Math.max(r-0.01f,0);
-//                g = Math.max(g-0.01f,0);
-//                b = Math.max(b-0.01f,0);
-//            }
-//            if(KeyListener.isKeyPressed(GLFW_KEY_SPACE)){
-//                fadeToBlack = true;
-//            }
-
             //This tells openGL how to clear the buffer, here it uses the color provided above, and flush that color to our entire screen
             glClear(GL_COLOR_BUFFER_BIT);
             //We are updating our scene not the first time we go through as dt is currently -1.
