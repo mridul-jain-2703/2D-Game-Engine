@@ -1,7 +1,161 @@
 package jade;
 
 
+import org.lwjgl.BufferUtils;
+
+import java.nio.FloatBuffer;
+import java.nio.IntBuffer;
+
+import static org.lwjgl.opengl.GL20.*;
+import static org.lwjgl.opengl.GL30.glBindVertexArray;
+import static org.lwjgl.opengl.GL30.glGenVertexArrays;
+
 public class LevelEditorScene extends Scene{
+
+    private String vertexShaderSrc = "#version 460 core\n" +
+            "\n" +
+            "layout (location = 0) in vec3 aPos;\n" +
+            "layout (location = 1) in vec4 aColor;\n" +
+            "\n" +
+            "out vec4 fColor;\n" +
+            "\n" +
+            "void main(){\n" +
+            "    fColor = aColor;\n" +
+            "    gl_Position = vec4(aPos, 1.0);\n" +
+            "}";
+
+    private String fragmentShaderSrc = "#version 460 core\n" +
+            "\n" +
+            "in vec4 fColor;\n" +
+            "out vec4 color;\n" +
+            "\n" +
+            "void main(){\n" +
+            "    color = fColor;\n" +
+            "\n" +
+            "}";
+
+    //Since we are passing data from our CPU to the GPU, we need some form of identifiers.
+    //shaderProgram is just the combination of vertexId and fragmentId.
+    private int vertexId, fragmentId, shaderProgram;
+
+    private float[] vertexArray = {
+        //position                        color
+         0.5f, -0.5f, 0.0f,         1.0f, 0.0f, 0.0f, 1.0f, //Bottom right 0
+        -0.5f,  0.5f, 0.0f,         0.0f, 1.0f, 0.0f, 1.0f, //Top left     1
+         0.5f,  0.5f, 0.0f,         1.0f, 0.0f, 1.0f, 1.0f, //Top Left     2
+        -0.5f, -0.5f, 0.0f,         1.0f, 1.0f, 0.0f, 1.0f, //Bottom Left  3
+    };
+
+    //IMPORTANT: Must be in counter-clockwise order
+    private int[] elementArray = {
+            /*
+                *        *
+
+
+                *        *
+             */
+        2, 1, 0, //Top-right triangle
+        0, 1, 3  //bottom-right triangle
+    };
+
+    private int vaoId, vboId, eboId;
+
+    @Override
+    public void init(){
+        //   =========================================================================
+        //   Compile and Link Shaders
+        //   =========================================================================
+
+        //First load and compile the vertex shader
+        vertexId = glCreateShader(GL_VERTEX_SHADER);
+        //Pass the shader source to the GPU
+        glShaderSource(vertexId,vertexShaderSrc);
+        glCompileShader(vertexId);
+
+        //Check for errors in compilation
+        //i is for info, GL_COMPILE_STATUS returns 0 for false and any non-zero for true.
+        int success = glGetShaderi(vertexId,GL_COMPILE_STATUS);
+        if(success == GL_FALSE){
+            int len = glGetShaderi(vertexId, GL_INFO_LOG_LENGTH);
+            System.out.println("ERROR: 'defaultShader.glsl' \n\tvertex shader compilation failed");
+            System.out.println(glGetShaderInfoLog(vertexId, len));
+            assert false: "";
+        }
+
+        //Load and compile the fragment shader
+        fragmentId = glCreateShader(GL_FRAGMENT_SHADER);
+        //Pass the shader source to the GPU
+        glShaderSource(fragmentId,fragmentShaderSrc);
+        glCompileShader(fragmentId);
+
+
+        //Check for errors in compilation
+        //i is for info, GL_COMPILE_STATUS returns 0 for false and any non-zero for true.
+        success = glGetShaderi(fragmentId,GL_COMPILE_STATUS);
+        if(success == GL_FALSE){
+            int len = glGetShaderi(fragmentId, GL_INFO_LOG_LENGTH);
+            System.out.println("ERROR: 'defaultShader.glsl' \n\tfragment shader compilation failed");
+            System.out.println(glGetShaderInfoLog(fragmentId, len));
+            assert false: "";
+        }
+
+        //Link shaders and check for errors
+        //Once again, a new identifier for
+        shaderProgram = glCreateProgram();
+        glAttachShader(shaderProgram, vertexId);
+        glAttachShader(shaderProgram, fragmentId);
+        glLinkProgram(shaderProgram);
+
+        //Check for linking errors
+        success = glGetProgrami(shaderProgram,GL_LINK_STATUS);
+        if(success == GL_FALSE){
+            int len = glGetProgrami(shaderProgram, GL_INFO_LOG_LENGTH);
+            System.out.println("ERROR: 'defaultShader.glsl' \n\tlinking of shaders failed");
+            System.out.println(glGetProgramInfoLog(shaderProgram, len));
+            assert false: "";
+        }
+
+        //   ======================================================================
+        //   Generate VAO, VBO, EBO buffer objects and send to GPU
+        //   ======================================================================
+        //This creates a vertex array for the GPU
+        vaoId = glGenVertexArrays();
+        //Make sure everything we are doing, is to be done for vaoId.
+        glBindVertexArray(vaoId);
+
+        //Create a float buffer of vertices
+        FloatBuffer vertexBuffer = BufferUtils.createFloatBuffer(vertexArray.length);
+        //This will orient it the correct way for openGL, otherwise ERROR.
+        vertexBuffer.put(vertexArray).flip();
+
+        //Create VBO upload the vertex buffer
+        vboId = glGenBuffers();
+        //Make sure everything we are doing, is to be done for this buffer.
+        //In this syntax, vboID is what we want to bind.
+        glBindBuffer(GL_ARRAY_BUFFER, vboId);
+        //This means, we are working with an arrayBuffer, we want to send vertexBuffer to vboId,
+        //and send it statically i.e. we are not going to be changing it.
+        glBufferData(GL_ARRAY_BUFFER,vertexBuffer,GL_STATIC_DRAW);
+
+        //Create the indices and upload
+        IntBuffer elementBuffer = BufferUtils.createIntBuffer(elementArray.length);
+        elementBuffer.put(elementArray).flip();
+        eboId = glGenBuffers();
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eboId);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, elementBuffer,GL_STATIC_DRAW);
+
+        //Add the vertex attribute pointers
+        int positionsSize = 3;
+        int colorsSize = 4;
+        int floatSizeBytes = 4;
+        //This will give us how big the whole vertex is in floats.
+        int vertexSizeBytes = (positionsSize + colorsSize) * floatSizeBytes;
+        glVertexAttribPointer(0, positionsSize, GL_FLOAT, false, vertexSizeBytes, 0);
+        glEnableVertexAttribArray(0);
+        //pointer -> offset
+        glVertexAttribPointer(1,colorsSize, GL_FLOAT, false, vertexSizeBytes, positionsSize * floatSizeBytes);
+        glEnableVertexAttribArray(1);
+    }
 
 
     public LevelEditorScene(){
@@ -9,7 +163,23 @@ public class LevelEditorScene extends Scene{
     }
     @Override
     public void update(float dt){
+        //Bind shader program
+        glUseProgram(shaderProgram);
+        //Bind the VAO's we are using
+        glBindVertexArray(vaoId);
 
+        //Enable the vertex Attribute pointers
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+
+        glDrawElements(GL_TRIANGLES, elementArray.length, GL_UNSIGNED_INT, 0);
+
+        //Unbind Everything
+        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(1);
+
+        glBindVertexArray(0);
+        glUseProgram(0);
     }
 }
 
