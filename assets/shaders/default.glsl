@@ -7,13 +7,17 @@
 layout (location = 0) in vec3 aPos;
 layout (location = 1) in vec4 aColor;
 
+uniform mat4 uProjection;
+uniform mat4 uView;
+
+
 out vec4 fColor;
 
 void main(){
     fColor = aColor;
     //gl_position is globally and implicitly defined variable that we is always already declared in every file.
     //here, aPos provides first 3 values and 4th value will be 1.
-    gl_Position = vec4(aPos, 1.0);
+    gl_Position = uProjection * uView * vec4(aPos, 1.0);
 }
 
 #type fragment

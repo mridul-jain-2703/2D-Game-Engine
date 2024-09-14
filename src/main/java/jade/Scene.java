@@ -1,6 +1,7 @@
 package jade;
 
 public abstract class Scene {
+    protected Camera camera;
     //This will be our main big game wrapper containing our game physics, objects etc.
     public Scene(){
 
