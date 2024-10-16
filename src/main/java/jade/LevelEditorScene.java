@@ -1,6 +1,7 @@
 package jade;
 
 
+import Util.Time;
 import org.joml.Vector2f;
 import org.lwjgl.BufferUtils;
 import renderer.Shader;
@@ -8,6 +9,7 @@ import renderer.Shader;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 
+import static org.lwjgl.glfw.GLFW.glfwGetTime;
 import static org.lwjgl.opengl.GL20.*;
 import static org.lwjgl.opengl.GL30.glBindVertexArray;
 import static org.lwjgl.opengl.GL30.glGenVertexArrays;
@@ -122,11 +124,14 @@ public class LevelEditorScene extends Scene{
 
     @Override
     public void update(float dt){
+        //This moves the camera to the left each frame
         camera.position.x -= dt*50.0f;
+        camera.position.y -= dt*20.0f;
 
         defaultShader.use();
         defaultShader.uploadMat4f("uProjection",camera.getProjectionMatrix());
         defaultShader.uploadMat4f("uView",camera.getViewMatrix());
+        defaultShader.uploadFloat("uTime", (float) glfwGetTime());
 
         //Bind the VAO's we are using
         glBindVertexArray(vaoId);
